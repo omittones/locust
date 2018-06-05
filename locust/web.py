@@ -19,6 +19,8 @@ from . import runners
 from .runners import MasterLocustRunner
 from .stats import distribution_csv, median_from_dict, requests_csv, sort_stats
 from .util.cache import memoize
+from locust.stats import percentile_from_dict
+from locust import __version__ as version
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ def index():
         host = runners.locust_runner.locust_classes[0].host
     else:
         host = None
-    
+
     return render_template("index.html",
         state=runners.locust_runner.state,
         is_distributed=is_distributed,
@@ -70,7 +72,7 @@ def stop():
 def reset_stats():
     runners.locust_runner.stats.reset_all()
     return "ok"
-    
+
 @app.route("/stats/requests/csv")
 def request_stats_csv():
     response = make_response(requests_csv())
@@ -93,7 +95,7 @@ def distribution_stats_csv():
 @memoize(timeout=DEFAULT_CACHE_TIME, dynamic_timeout=True)
 def request_stats():
     stats = []
-    
+
     for s in chain(sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.total]):
         stats.append({
             "method": s.method,
@@ -105,6 +107,7 @@ def request_stats():
             "max_response_time": s.max_response_time,
             "current_rps": s.current_rps,
             "median_response_time": s.median_response_time,
+            "ninetieth_response_time": s.ninetieth_response_time,
             "avg_content_length": s.avg_content_length,
         })
 
@@ -119,7 +122,20 @@ def request_stats():
         report["fail_ratio"] = runners.locust_runner.stats.total.fail_ratio
         report["current_response_time_percentile_95"] = runners.locust_runner.stats.total.get_current_response_time_percentile(0.95)
         report["current_response_time_percentile_50"] = runners.locust_runner.stats.total.get_current_response_time_percentile(0.5)
-    
+
+        # since generating a total response times dict with all response times from all
+        # urls is slow, we make a new total response time dict which will consist of one
+        # entry per url with the median response time as key and the number of requests as
+        # value
+        response_times = defaultdict(int) # used for calculating total median
+        for i in xrange(len(stats)-1):
+            response_times[stats[i]["median_response_time"]] += stats[i]["num_requests"]
+
+        # calculate total median
+        stats[len(stats)-1]["median_response_time"] = percentile_from_dict(stats[len(stats)-1]["num_requests"], response_times, 50)
+        stats[len(stats)-1]["ninetieth_response_time"] = percentile_from_dict(stats[len(stats)-1]["num_requests"], response_times, 90)
+
+
     is_distributed = isinstance(runners.locust_runner, MasterLocustRunner)
     if is_distributed:
         slaves = []
@@ -127,7 +143,7 @@ def request_stats():
             slaves.append({"id":slave.id, "state":slave.state, "user_count": slave.user_count})
 
         report["slaves"] = slaves
-    
+
     report["state"] = runners.locust_runner.state
     report["user_count"] = runners.locust_runner.user_count
 
@@ -154,7 +170,7 @@ def exceptions_csv():
     for exc in six.itervalues(runners.locust_runner.exceptions):
         nodes = ", ".join(exc["nodes"])
         writer.writerow([exc["count"], exc["msg"], exc["traceback"], nodes])
-    
+
     data.seek(0)
     response = make_response(data.read())
     file_name = "exceptions_{0}.csv".format(time())
