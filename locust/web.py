@@ -107,7 +107,7 @@ def request_stats():
             "max_response_time": s.max_response_time,
             "current_rps": s.current_rps,
             "median_response_time": s.median_response_time,
-            "ninetieth_response_time": s.ninetieth_response_time,
+            "ninetieth_response_time": s.percentile_response_time(90),
             "avg_content_length": s.avg_content_length,
         })
 
@@ -118,22 +118,25 @@ def request_stats():
     report = {"stats": stats[:500], "errors": errors[:500]}
 
     if stats:
-        report["total_rps"] = stats[len(stats)-1]["current_rps"]
+
+        lastIndex = len(stats)-1
+
+        report["total_rps"] = stats[lastIndex]["current_rps"]
         report["fail_ratio"] = runners.locust_runner.stats.total.fail_ratio
         report["current_response_time_percentile_95"] = runners.locust_runner.stats.total.get_current_response_time_percentile(0.95)
         report["current_response_time_percentile_50"] = runners.locust_runner.stats.total.get_current_response_time_percentile(0.5)
 
-        # since generating a total response times dict with all response times from all
-        # urls is slow, we make a new total response time dict which will consist of one
-        # entry per url with the median response time as key and the number of requests as
-        # value
-        response_times = defaultdict(int) # used for calculating total median
-        for i in xrange(len(stats)-1):
-            response_times[stats[i]["median_response_time"]] += stats[i]["num_requests"]
+        # # since generating a total response times dict with all response times from all
+        # # urls is slow, we make a new total response time dict which will consist of one
+        # # entry per url with the median response time as key and the number of requests as
+        # # value
+        # response_times = defaultdict(int) # used for calculating total median
+        # for i in xrange(lastIndex):
+        #     response_times[stats[i]["median_response_time"]] += stats[i]["num_requests"]
 
-        # calculate total median
-        stats[len(stats)-1]["median_response_time"] = percentile_from_dict(stats[len(stats)-1]["num_requests"], response_times, 50)
-        stats[len(stats)-1]["ninetieth_response_time"] = percentile_from_dict(stats[len(stats)-1]["num_requests"], response_times, 90)
+        # # calculate total median
+        # stats[lastIndex]["median_response_time"] = percentile_from_dict(stats[lastIndex]["num_requests"], response_times, 50)
+        # stats[lastIndex]["ninetieth_response_time"] = percentile_from_dict(stats[lastIndex]["num_requests"], response_times, 90)
 
 
     is_distributed = isinstance(runners.locust_runner, MasterLocustRunner)

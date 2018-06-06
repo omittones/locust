@@ -296,11 +296,10 @@ class StatsEntry(object):
             return 0
         return percentile_from_dict(self.num_requests, self.response_times, 50)
 
-    @property
-    def ninetieth_response_time(self):
+    def percentile_response_time(self, percentile):
         if not self.response_times:
             return 0
-        return percentile_from_dict(self.num_requests, self.response_times, 90)
+        return percentile_from_dict(self.num_requests, self.response_times, percentile)
 
     @property
     def current_rps(self):
@@ -542,6 +541,9 @@ class StatsError(object):
 def avg(values):
     return sum(values, 0.0) / max(len(values), 1)
 
+def median_from_dict(total, count):
+    return percentile_from_dict(total, count, 50)
+
 def percentile_from_dict(total, count, percentile):
     """
     total is the number of requests made
@@ -699,14 +701,14 @@ def requests_csv():
         ])
     ]
 
-    for s in chain(_sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.aggregated_stats("Total", full_request_history=True)]):
+    for s in chain(sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.total]):
         rows.append('"%s","%s",%i,%i,%i,%i,%i,%i,%i,%i,%.2f' % (
             s.method,
             s.name,
             s.num_requests,
             s.num_failures,
             s.median_response_time,
-            s.ninetieth_response_time,
+            s.percentile_response_time(90),
             s.avg_response_time,
             s.min_response_time or 0,
             s.max_response_time,
