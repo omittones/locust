@@ -711,7 +711,7 @@ def requests_csv():
             s.percentile_response_time(90),
             s.avg_response_time,
             s.min_response_time or 0,
-            s.max_response_time,
+            s.max_response_time or 0,
             s.avg_content_length,
             s.total_rps,
         ))

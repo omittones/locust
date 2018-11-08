@@ -225,8 +225,8 @@
             <td class="numeric"><%= Math.round(this.ninetieth_response_time) %></td>
             <td class="numeric"><%= Math.round(this.median_response_time) %></td>
             <td class="numeric"><%= Math.round(this.avg_response_time) %></td>
-            <td class="numeric"><%= this.min_response_time %></td>
-            <td class="numeric"><%= this.max_response_time %></td>
+            <td class="numeric"><%= Math.round(this.min_response_time) %></td>
+            <td class="numeric"><%= Math.round(this.max_response_time) %></td>
             <td class="numeric"><%= Math.round(this.avg_content_length) %></td>
             <td class="numeric"><%= Math.round(this.current_rps*100)/100 %></td>
         </tr>
